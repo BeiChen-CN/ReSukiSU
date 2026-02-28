@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import com.resukisu.resukisu.Natives
 import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ui.theme.CardConfig
@@ -38,6 +39,15 @@ class MoreSettingsState(
     // 语言设置
     var showLanguageDialog by mutableStateOf(false)
     var currentAppLocale by mutableStateOf(LocaleHelper.getCurrentAppLocale(context))
+
+    // 设计风格
+    var designStyle by mutableIntStateOf(ThemeConfig.designStyle.value)
+    var miuixKeyColor by mutableStateOf(ThemeConfig.miuixKeyColor)
+    var showMiuixKeyColorDialog by mutableStateOf(false)
+    val designStyleOptions = listOf(
+        context.getString(R.string.design_style_m3),
+        context.getString(R.string.design_style_miuix)
+    )
 
     // 对话框显示状态
     var showThemeColorDialog by mutableStateOf(false)

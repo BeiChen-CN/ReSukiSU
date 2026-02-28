@@ -752,4 +752,10 @@ Important Note:\n
     <string name="module_shortcut_permission_tip_xiaomi">Please enable \"Create desktop shortcuts\" permission for this app in Xiaomi settings.</string>
     <string name="module_shortcut_permission_tip_oppo">Please enable \"Desktop shortcut\" permission for this app in OPPO settings.</string>
     <string name="module_shortcut_permission_tip_default">If shortcut creation fails, please enable desktop shortcut permission for this app in system settings.</string>
+
+    <string name="design_style">Design Style</string>
+    <string name="design_style_m3">Material Expressive</string>
+    <string name="design_style_miuix">Miuix</string>
+    <string name="miuix_key_color">Key Color</string>
+    <string name="miuix_key_color_summary">Accent color for Miuix dynamic theme</string>
 </resources>

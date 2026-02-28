@@ -741,4 +741,10 @@
     <string name="module_shortcut_permission_tip_xiaomi">请在 Xiaomi 设置中为本应用启用“创建桌面快捷方式”权限。</string>
     <string name="module_shortcut_permission_tip_oppo">请在 OPPO 设置中为本应用启用“桌面快捷方式”权限。</string>
     <string name="module_shortcut_permission_tip_default">若创建快捷方式失败，请在系统设置中为本应用启用桌面快捷方式权限。</string>
+
+    <string name="design_style">设计风格</string>
+    <string name="design_style_m3">Material Expressive</string>
+    <string name="design_style_miuix">Miuix</string>
+    <string name="miuix_key_color">主题色</string>
+    <string name="miuix_key_color_summary">Miuix 动态主题的强调色</string>
 </resources>

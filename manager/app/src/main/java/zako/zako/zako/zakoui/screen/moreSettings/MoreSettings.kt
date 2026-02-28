@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DesignServices
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
@@ -318,6 +319,19 @@ private fun AppearanceSettings(
         }
 
         item {
+            // 设计风格
+            SettingsDropdownWidget(
+                icon = Icons.Default.DesignServices,
+                title = stringResource(R.string.design_style),
+                items = state.designStyleOptions,
+                selectedIndex = state.designStyle,
+                onSelectedIndexChange = { index ->
+                    handlers.handleDesignStyleChange(index)
+                }
+            )
+        }
+
+        item {
             // 主题模式
             SettingsDropdownWidget(
                 icon = Icons.Default.DarkMode,
@@ -344,10 +358,29 @@ private fun AppearanceSettings(
         }
 
         item(
-            visible = !state.useDynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+            visible = state.designStyle == 0 && (!state.useDynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S)
         ) {
-            // 主题色选择
+            // 主题色选择（仅 M3 模式 + 非动态颜色时显示）
             ThemeColorSelection(state = state)
+        }
+
+        item(
+            visible = state.designStyle == 1 && state.useDynamicColor
+        ) {
+            // Miuix 主题色选择（仅 Miuix 模式 + 动态颜色时显示）
+            SettingsBaseWidget(
+                icon = Icons.Default.Palette,
+                title = stringResource(R.string.miuix_key_color),
+                description = stringResource(R.string.miuix_key_color_summary),
+                onClick = { state.showMiuixKeyColorDialog = true },
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(state.miuixKeyColor)
+                )
+            }
         }
 
         item {

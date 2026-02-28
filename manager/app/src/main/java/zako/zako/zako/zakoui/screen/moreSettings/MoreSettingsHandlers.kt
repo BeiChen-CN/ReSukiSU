@@ -14,11 +14,14 @@ import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ui.MainActivity
 import com.resukisu.resukisu.ui.theme.BackgroundManager
 import com.resukisu.resukisu.ui.theme.CardConfig
+import com.resukisu.resukisu.ui.theme.DesignStyle
 import com.resukisu.resukisu.ui.theme.ThemeColors
 import com.resukisu.resukisu.ui.theme.ThemeConfig
 import com.resukisu.resukisu.ui.theme.saveAndApplyCustomBackground
 import com.resukisu.resukisu.ui.theme.saveCustomBackground
+import com.resukisu.resukisu.ui.theme.saveDesignStyle
 import com.resukisu.resukisu.ui.theme.saveDynamicColorState
+import com.resukisu.resukisu.ui.theme.saveMiuixKeyColor
 import com.resukisu.resukisu.ui.theme.saveThemeColors
 import com.resukisu.resukisu.ui.theme.saveThemeMode
 import com.topjohnwu.superuser.Shell
@@ -74,6 +77,10 @@ class MoreSettingsHandlers(
 
         state.currentDpi = prefs.getInt("app_dpi", state.systemDpi)
         state.tempDpi = state.currentDpi
+
+        // 初始化设计风格
+        state.designStyle = ThemeConfig.designStyle.value
+        state.miuixKeyColor = ThemeConfig.miuixKeyColor
 
         CardConfig.save(activity)
 
@@ -151,6 +158,23 @@ class MoreSettingsHandlers(
         state.useDynamicColor = enabled
         activity.saveDynamicColorState(enabled)
         ThemeConfig.updateTheme(dynamicColor = enabled)
+    }
+
+    /**
+     * 处理设计风格变更
+     */
+    fun handleDesignStyleChange(index: Int) {
+        val style = DesignStyle.fromValue(index)
+        state.designStyle = style.value
+        activity.saveDesignStyle(style)
+    }
+
+    /**
+     * 处理 Miuix 主题色变更
+     */
+    fun handleMiuixKeyColorChange(color: androidx.compose.ui.graphics.Color) {
+        state.miuixKeyColor = color
+        activity.saveMiuixKeyColor(color)
     }
 
     /**

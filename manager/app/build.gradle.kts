@@ -210,4 +210,5 @@ dependencies {
 
     implementation(libs.accompanist.drawablepainter)
 
+    implementation(libs.miuix)
 }

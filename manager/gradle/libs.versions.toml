@@ -26,6 +26,7 @@ compose-ui = "1.10.3"
 documentfile = "1.1.0"
 ndk = "29.0.14206865"
 foundation = "1.10.3"
+miuix = "0.8.5"
 
 [plugins]
 agp-app = { id = "com.android.application", version.ref = "agp" }
@@ -89,3 +90,5 @@ lsposed-cxx = { module = "org.lsposed.libcxx:libcxx", version.ref = "ndk" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+
+miuix = { module = "top.yukonga.miuix.kmp:miuix-android", version.ref = "miuix" }

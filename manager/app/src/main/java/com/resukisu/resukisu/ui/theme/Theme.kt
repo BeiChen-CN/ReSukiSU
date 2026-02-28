@@ -23,6 +23,7 @@ import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
@@ -55,6 +56,9 @@ import com.resukisu.resukisu.ui.theme.util.saveTransformedBackground
 import com.resukisu.resukisu.ui.webui.MonetColorsProvider
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.ThemeController
 import java.io.File
 import java.io.FileOutputStream
 
@@ -66,6 +70,10 @@ object ThemeConfig {
     var forceDarkMode by mutableStateOf<Boolean?>(null)
     var currentTheme by mutableStateOf<ThemeColors>(ThemeColors.Default)
     var useDynamicColor by mutableStateOf(false)
+
+    // 设计风格
+    var designStyle by mutableStateOf(DesignStyle.MaterialExpressive)
+    var miuixKeyColor by mutableStateOf(Color(0xFF0D6EFD))
 
     // 背景状态
     var backgroundImageLoaded by mutableStateOf(false)
@@ -103,6 +111,8 @@ object ThemeConfig {
         forceDarkMode = null
         currentTheme = ThemeColors.Default
         useDynamicColor = false
+        designStyle = DesignStyle.MaterialExpressive
+        miuixKeyColor = Color(0xFF0D6EFD)
         backgroundImageLoaded = false
         isThemeChanging = false
         preventBackgroundRefresh = false
@@ -160,6 +170,34 @@ object ThemeManager {
         val enabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean("use_dynamic_color", Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
         ThemeConfig.useDynamicColor = enabled
+    }
+
+    fun saveDesignStyle(context: Context, style: DesignStyle) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putInt("design_style", style.value)
+        }
+        ThemeConfig.designStyle = style
+    }
+
+    fun loadDesignStyle(context: Context) {
+        val value = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt("design_style", 0)
+        ThemeConfig.designStyle = DesignStyle.fromValue(value)
+    }
+
+    fun saveMiuixKeyColor(context: Context, color: Color) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putLong("miuix_key_color", color.value.toLong())
+        }
+        ThemeConfig.miuixKeyColor = color
+    }
+
+    fun loadMiuixKeyColor(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.contains("miuix_key_color")) {
+            val colorLong = prefs.getLong("miuix_key_color", Color(0xFF0D6EFD).value.toLong())
+            ThemeConfig.miuixKeyColor = Color(colorLong.toULong())
+        }
     }
 }
 
@@ -273,11 +311,25 @@ fun KernelSUTheme(
     // 初始化主题
     ThemeInitializer(context = context, systemIsDark = systemIsDark)
 
-    // 创建颜色方案
-    val colorScheme = createColorScheme(darkTheme, dynamicColor)
-
     // 系统栏样式
     SystemBarController(darkTheme)
+
+    CompositionLocalProvider(LocalDesignStyle provides ThemeConfig.designStyle) {
+        when (ThemeConfig.designStyle) {
+            DesignStyle.MaterialExpressive -> M3ExpressiveThemeContent(darkTheme, dynamicColor, content)
+            DesignStyle.Miuix -> MiuixThemeContent(darkTheme, content)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun M3ExpressiveThemeContent(
+    darkTheme: Boolean,
+    dynamicColor: Boolean,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = createColorScheme(darkTheme, dynamicColor)
 
     MaterialExpressiveTheme(
         colorScheme = colorScheme,
@@ -289,6 +341,103 @@ fun KernelSUTheme(
             BackgroundLayer(darkTheme)
             content()
         }
+    }
+}
+
+@Composable
+private fun MiuixThemeContent(
+    darkTheme: Boolean,
+    content: @Composable () -> Unit
+) {
+    val colorSchemeMode = when {
+        ThemeConfig.useDynamicColor -> when (ThemeConfig.forceDarkMode) {
+            true -> ColorSchemeMode.MonetDark
+            false -> ColorSchemeMode.MonetLight
+            null -> ColorSchemeMode.MonetSystem
+        }
+        else -> when (ThemeConfig.forceDarkMode) {
+            true -> ColorSchemeMode.Dark
+            false -> ColorSchemeMode.Light
+            null -> ColorSchemeMode.System
+        }
+    }
+
+    val controller = ThemeController(
+        colorSchemeMode = colorSchemeMode,
+        keyColor = ThemeConfig.miuixKeyColor
+    )
+
+    MiuixTheme(controller = controller) {
+        val bridgedColorScheme = miuixToM3ColorScheme(darkTheme)
+        MaterialTheme(colorScheme = bridgedColorScheme) {
+            MonetColorsProvider.UpdateCss()
+            Box(modifier = Modifier.fillMaxSize()) {
+                BackgroundLayer(darkTheme)
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun miuixToM3ColorScheme(darkTheme: Boolean): ColorScheme {
+    val miuix = MiuixTheme.colorScheme
+    return if (darkTheme) {
+        darkColorScheme(
+            primary = miuix.primary,
+            onPrimary = miuix.onPrimary,
+            primaryContainer = miuix.primaryContainer,
+            onPrimaryContainer = miuix.onPrimaryContainer,
+            secondary = miuix.secondary,
+            onSecondary = miuix.onSecondary,
+            secondaryContainer = miuix.secondaryContainer,
+            onSecondaryContainer = miuix.onSecondaryContainer,
+            tertiaryContainer = miuix.tertiaryContainer,
+            onTertiaryContainer = miuix.onTertiaryContainer,
+            error = miuix.error,
+            onError = miuix.onError,
+            errorContainer = miuix.errorContainer,
+            onErrorContainer = miuix.onErrorContainer,
+            background = if (CardConfig.isCustomBackgroundEnabled) Color.Transparent else miuix.background,
+            onBackground = miuix.onBackground,
+            surface = if (CardConfig.isCustomBackgroundEnabled) Color.Transparent else miuix.surface,
+            onSurface = miuix.onSurface,
+            surfaceVariant = miuix.surfaceVariant,
+            onSurfaceVariant = miuix.onSurfaceSecondary,
+            outline = miuix.outline,
+            outlineVariant = miuix.dividerLine,
+            surfaceContainer = miuix.surfaceContainer,
+            surfaceContainerHigh = miuix.surfaceContainerHigh,
+            surfaceContainerHighest = miuix.surfaceContainerHighest,
+        )
+    } else {
+        lightColorScheme(
+            primary = miuix.primary,
+            onPrimary = miuix.onPrimary,
+            primaryContainer = miuix.primaryContainer,
+            onPrimaryContainer = miuix.onPrimaryContainer,
+            secondary = miuix.secondary,
+            onSecondary = miuix.onSecondary,
+            secondaryContainer = miuix.secondaryContainer,
+            onSecondaryContainer = miuix.onSecondaryContainer,
+            tertiaryContainer = miuix.tertiaryContainer,
+            onTertiaryContainer = miuix.onTertiaryContainer,
+            error = miuix.error,
+            onError = miuix.onError,
+            errorContainer = miuix.errorContainer,
+            onErrorContainer = miuix.onErrorContainer,
+            background = if (CardConfig.isCustomBackgroundEnabled) Color.Transparent else miuix.background,
+            onBackground = miuix.onBackground,
+            surface = if (CardConfig.isCustomBackgroundEnabled) Color.Transparent else miuix.surface,
+            onSurface = miuix.onSurface,
+            surfaceVariant = miuix.surfaceVariant,
+            onSurfaceVariant = miuix.onSurfaceSecondary,
+            outline = miuix.outline,
+            outlineVariant = miuix.dividerLine,
+            surfaceContainer = miuix.surfaceContainer,
+            surfaceContainerHigh = miuix.surfaceContainerHigh,
+            surfaceContainerHighest = miuix.surfaceContainerHighest,
+        )
     }
 }
 
@@ -321,6 +470,8 @@ private fun ThemeInitializer(context: Context, systemIsDark: Boolean) {
             ThemeManager.loadThemeMode(context)
             ThemeManager.loadThemeColors(context)
             ThemeManager.loadDynamicColorState(context)
+            ThemeManager.loadDesignStyle(context)
+            ThemeManager.loadMiuixKeyColor(context)
             CardConfig.load(context)
 
             if (!ThemeConfig.backgroundImageLoaded && !ThemeConfig.preventBackgroundRefresh) {
@@ -596,6 +747,14 @@ fun Context.saveThemeColors(themeName: String) {
 
 fun Context.saveDynamicColorState(enabled: Boolean) {
     ThemeManager.saveDynamicColorState(this, enabled)
+}
+
+fun Context.saveDesignStyle(style: DesignStyle) {
+    ThemeManager.saveDesignStyle(this, style)
+}
+
+fun Context.saveMiuixKeyColor(color: Color) {
+    ThemeManager.saveMiuixKeyColor(this, color)
 }
 
 @Composable

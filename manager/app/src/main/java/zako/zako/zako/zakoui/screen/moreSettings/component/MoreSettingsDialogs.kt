@@ -1,6 +1,7 @@
 package zako.zako.zako.zakoui.screen.moreSettings.component
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -10,8 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -33,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -75,6 +80,18 @@ fun MoreSettingsDialogs(
                 state.showDynamicSignDialog = false
             },
             onDismiss = { state.showDynamicSignDialog = false }
+        )
+    }
+
+    // Miuix 主题色选择对话框
+    if (state.showMiuixKeyColorDialog) {
+        MiuixKeyColorDialog(
+            currentColor = state.miuixKeyColor,
+            onColorSelected = { color ->
+                handlers.handleMiuixKeyColorChange(color)
+                state.showMiuixKeyColorDialog = false
+            },
+            onDismiss = { state.showMiuixKeyColorDialog = false }
         )
     }
 }
@@ -384,6 +401,64 @@ fun DynamicManagerDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+fun MiuixKeyColorDialog(
+    currentColor: Color,
+    onColorSelected: (Color) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val presetColors = listOf(
+        "Blue" to Color(0xFF0D6EFD),
+        "Green" to Color(0xFF0A9D58),
+        "Purple" to Color(0xFF7C3AED),
+        "Orange" to Color(0xFFE8590C),
+        "Pink" to Color(0xFFDB2777),
+        "Gray" to Color(0xFF6B7280),
+        "Yellow" to Color(0xFFCA8A04),
+        "Red" to Color(0xFFDC2626),
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.miuix_key_color)) },
+        text = {
+            Column {
+                presetColors.forEach { (name, color) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onColorSelected(color) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(color)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(name)
+                        Spacer(modifier = Modifier.weight(1f))
+                        if (currentColor == color) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
                 Text(stringResource(R.string.cancel))
             }
         }
