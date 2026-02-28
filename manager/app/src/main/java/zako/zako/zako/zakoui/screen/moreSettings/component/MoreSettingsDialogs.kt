@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -49,7 +50,6 @@ import com.maxkeppeler.sheets.list.ListDialog
 import com.maxkeppeler.sheets.list.models.ListOption
 import com.maxkeppeler.sheets.list.models.ListSelection
 import com.resukisu.resukisu.R
-import com.resukisu.resukisu.ui.theme.ThemeColors
 import com.resukisu.resukisu.ui.theme.ThemeConfig
 import zako.zako.zako.zakoui.screen.moreSettings.MoreSettingsHandlers
 import zako.zako.zako.zakoui.screen.moreSettings.state.MoreSettingsState
@@ -60,17 +60,6 @@ fun MoreSettingsDialogs(
     state: MoreSettingsState,
     handlers: MoreSettingsHandlers
 ) {
-    // 主题色选择对话框
-    if (state.showThemeColorDialog) {
-        ThemeColorDialog(
-            onColorSelected = { theme ->
-                handlers.handleThemeColorChange(theme)
-                state.showThemeColorDialog = false
-            },
-            onDismiss = { state.showThemeColorDialog = false }
-        )
-    }
-
     // 动态管理器配置对话框
     if (state.showDynamicSignDialog) {
         DynamicManagerDialog(
@@ -80,18 +69,6 @@ fun MoreSettingsDialogs(
                 state.showDynamicSignDialog = false
             },
             onDismiss = { state.showDynamicSignDialog = false }
-        )
-    }
-
-    // Miuix 主题色选择对话框
-    if (state.showMiuixKeyColorDialog) {
-        MiuixKeyColorDialog(
-            currentColor = state.miuixKeyColor,
-            onColorSelected = { color ->
-                handlers.handleMiuixKeyColorChange(color)
-                state.showMiuixKeyColorDialog = false
-            },
-            onDismiss = { state.showMiuixKeyColorDialog = false }
         )
     }
 }
@@ -224,79 +201,6 @@ fun LanguageSelectionDialog(
         )
     }
 }
-@Composable
-fun ThemeColorDialog(
-    onColorSelected: (ThemeColors) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val themeColorOptions = listOf(
-        stringResource(R.string.color_default) to ThemeColors.Default,
-        stringResource(R.string.color_green) to ThemeColors.Green,
-        stringResource(R.string.color_purple) to ThemeColors.Purple,
-        stringResource(R.string.color_orange) to ThemeColors.Orange,
-        stringResource(R.string.color_pink) to ThemeColors.Pink,
-        stringResource(R.string.color_gray) to ThemeColors.Gray,
-        stringResource(R.string.color_yellow) to ThemeColors.Yellow
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.choose_theme_color)) },
-        text = {
-            Column {
-                themeColorOptions.forEach { (name, theme) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onColorSelected(theme) }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val isDark = isSystemInDarkTheme()
-                        Box(
-                            modifier = Modifier.padding(end = 12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                ColorCircle(
-                                    color = if (isDark) theme.primaryDark else theme.primaryLight,
-                                    isSelected = false,
-                                    modifier = Modifier.padding(horizontal = 2.dp)
-                                )
-                                ColorCircle(
-                                    color = if (isDark) theme.secondaryDark else theme.secondaryLight,
-                                    isSelected = false,
-                                    modifier = Modifier.padding(horizontal = 2.dp)
-                                )
-                                ColorCircle(
-                                    color = if (isDark) theme.tertiaryDark else theme.tertiaryLight,
-                                    isSelected = false,
-                                    modifier = Modifier.padding(horizontal = 2.dp)
-                                )
-                            }
-                        }
-                        Text(name)
-                        Spacer(modifier = Modifier.weight(1f))
-                        // 当前选中的主题显示选中标记
-                        if (ThemeConfig.currentTheme::class == theme::class) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onDismiss
-            ) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
-}
 
 @Composable
 fun DynamicManagerDialog(
@@ -401,64 +305,6 @@ fun DynamicManagerDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
-}
-
-@Composable
-fun MiuixKeyColorDialog(
-    currentColor: Color,
-    onColorSelected: (Color) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val presetColors = listOf(
-        "Blue" to Color(0xFF0D6EFD),
-        "Green" to Color(0xFF0A9D58),
-        "Purple" to Color(0xFF7C3AED),
-        "Orange" to Color(0xFFE8590C),
-        "Pink" to Color(0xFFDB2777),
-        "Gray" to Color(0xFF6B7280),
-        "Yellow" to Color(0xFFCA8A04),
-        "Red" to Color(0xFFDC2626),
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.miuix_key_color)) },
-        text = {
-            Column {
-                presetColors.forEach { (name, color) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onColorSelected(color) }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(color)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(name)
-                        Spacer(modifier = Modifier.weight(1f))
-                        if (currentColor == color) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss) {
                 Text(stringResource(R.string.cancel))
             }
         }

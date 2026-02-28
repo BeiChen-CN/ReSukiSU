@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
 import com.resukisu.resukisu.Natives
 import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ui.theme.CardConfig
@@ -24,33 +23,15 @@ class MoreSettingsState(
     val prefs: SharedPreferences,
     val systemIsDark: Boolean
 ) {
-    // 主题模式选择
-    var themeMode by mutableIntStateOf(
-        when (ThemeConfig.forceDarkMode) {
-            true -> 2 // 深色
-            false -> 1 // 浅色
-            null -> 0 // 跟随系统
-        }
-    )
+    // 主题模式: 0=System, 1=Light, 2=Dark, 3=MonetSystem, 4=MonetLight, 5=MonetDark
+    var colorMode by mutableIntStateOf(ThemeConfig.colorMode)
 
-    // 动态颜色开关状态
-    var useDynamicColor by mutableStateOf(ThemeConfig.useDynamicColor)
+    // Key color (ARGB Int, 0=默认)
+    var keyColorInt by mutableIntStateOf(ThemeConfig.keyColorInt)
 
     // 语言设置
     var showLanguageDialog by mutableStateOf(false)
     var currentAppLocale by mutableStateOf(LocaleHelper.getCurrentAppLocale(context))
-
-    // 设计风格
-    var designStyle by mutableIntStateOf(ThemeConfig.designStyle.value)
-    var miuixKeyColor by mutableStateOf(ThemeConfig.miuixKeyColor)
-    var showMiuixKeyColorDialog by mutableStateOf(false)
-    val designStyleOptions = listOf(
-        context.getString(R.string.design_style_m3),
-        context.getString(R.string.design_style_miuix)
-    )
-
-    // 对话框显示状态
-    var showThemeColorDialog by mutableStateOf(false)
 
     // 动态管理器配置状态
     var dynamicSignConfig by mutableStateOf<Natives.DynamicManagerConfig?>(null)
@@ -58,7 +39,6 @@ class MoreSettingsState(
     var dynamicSignSize by mutableStateOf("")
     var dynamicSignHash by mutableStateOf("")
     var showDynamicSignDialog by mutableStateOf(false)
-
 
     // 各种设置开关状态
     var isSimpleMode by mutableStateOf(prefs.getBoolean("is_simple_mode", false))
@@ -88,11 +68,14 @@ class MoreSettingsState(
     var tempDpi by mutableIntStateOf(currentDpi)
     var isDpiCustom by mutableStateOf(true)
 
-    // 主题模式选项
+    // 主题模式选项 (与 SukiSU 一致的 6 选项)
     val themeOptions = listOf(
-        context.getString(R.string.theme_follow_system),
-        context.getString(R.string.theme_light),
-        context.getString(R.string.theme_dark)
+        context.getString(R.string.settings_theme_mode_system),
+        context.getString(R.string.settings_theme_mode_light),
+        context.getString(R.string.settings_theme_mode_dark),
+        context.getString(R.string.settings_theme_mode_monet_system),
+        context.getString(R.string.settings_theme_mode_monet_light),
+        context.getString(R.string.settings_theme_mode_monet_dark),
     )
 
     // 预设 DPI 选项

@@ -14,16 +14,11 @@ import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ui.MainActivity
 import com.resukisu.resukisu.ui.theme.BackgroundManager
 import com.resukisu.resukisu.ui.theme.CardConfig
-import com.resukisu.resukisu.ui.theme.DesignStyle
-import com.resukisu.resukisu.ui.theme.ThemeColors
 import com.resukisu.resukisu.ui.theme.ThemeConfig
 import com.resukisu.resukisu.ui.theme.saveAndApplyCustomBackground
 import com.resukisu.resukisu.ui.theme.saveCustomBackground
-import com.resukisu.resukisu.ui.theme.saveDesignStyle
-import com.resukisu.resukisu.ui.theme.saveDynamicColorState
-import com.resukisu.resukisu.ui.theme.saveMiuixKeyColor
-import com.resukisu.resukisu.ui.theme.saveThemeColors
-import com.resukisu.resukisu.ui.theme.saveThemeMode
+import com.resukisu.resukisu.ui.theme.saveColorMode
+import com.resukisu.resukisu.ui.theme.saveKeyColor
 import com.topjohnwu.superuser.Shell
 import zako.zako.zako.zakoui.screen.moreSettings.state.MoreSettingsState
 import zako.zako.zako.zakoui.screen.moreSettings.util.toggleLauncherIcon
@@ -47,40 +42,37 @@ class MoreSettingsHandlers(
         state.backgroundDim = ThemeConfig.backgroundDim
         state.isCustomBackgroundEnabled = ThemeConfig.customBackgroundUri != null
 
-        // 设置主题模式
-        state.themeMode = when (ThemeConfig.forceDarkMode) {
-            true -> 2
-            false -> 1
-            null -> 0
-        }
+        // 同步 colorMode
+        state.colorMode = ThemeConfig.colorMode
+        state.keyColorInt = ThemeConfig.keyColorInt
 
         // 确保卡片样式跟随主题模式
-        when (state.themeMode) {
-            2 -> { // 深色
+        val isDark = when (ThemeConfig.colorMode) {
+            2, 5 -> true
+            1, 4 -> false
+            else -> state.systemIsDark
+        }
+        when (ThemeConfig.colorMode) {
+            2, 5 -> {
                 CardConfig.isUserDarkModeEnabled = true
                 CardConfig.isUserLightModeEnabled = false
             }
-            1 -> { // 浅色
+            1, 4 -> {
                 CardConfig.isUserDarkModeEnabled = false
                 CardConfig.isUserLightModeEnabled = true
             }
-            0 -> { // 跟随系统
+            else -> {
                 CardConfig.isUserDarkModeEnabled = false
                 CardConfig.isUserLightModeEnabled = false
             }
         }
 
-        // 如果启用了系统跟随且系统是深色模式，应用深色模式默认值
-        if (state.themeMode == 0 && state.systemIsDark) {
+        if (ThemeConfig.colorMode in listOf(0, 3) && state.systemIsDark) {
             CardConfig.setThemeDefaults(true)
         }
 
         state.currentDpi = prefs.getInt("app_dpi", state.systemDpi)
         state.tempDpi = state.currentDpi
-
-        // 初始化设计风格
-        state.designStyle = ThemeConfig.designStyle.value
-        state.miuixKeyColor = ThemeConfig.miuixKeyColor
 
         CardConfig.save(activity)
 
@@ -99,82 +91,44 @@ class MoreSettingsHandlers(
     }
 
     /**
-     * 处理主题模式变更
+     * 处理主题模式变更 (colorMode 0-5，与 SukiSU 一致)
      */
-    fun handleThemeModeChange(index: Int) {
-        state.themeMode = index
-        val newThemeMode = when (index) {
-            0 -> null // 跟随系统
-            1 -> false // 浅色
-            2 -> true // 深色
-            else -> null
+    fun handleColorModeChange(index: Int) {
+        state.colorMode = index
+        activity.saveColorMode(index)
+
+        val isDark = when (index) {
+            2, 5 -> true
+            1, 4 -> false
+            else -> {
+                val isNightModeActive = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                isNightModeActive
+            }
         }
-        activity.saveThemeMode(newThemeMode)
-        ThemeConfig.updateTheme(darkMode = newThemeMode)
 
         when (index) {
-            2 -> { // 深色
-                ThemeConfig.updateTheme(darkMode = true)
+            2, 5 -> {
                 CardConfig.updateThemePreference(darkMode = true, lightMode = false)
                 CardConfig.setThemeDefaults(true)
-                CardConfig.save(activity)
             }
-            1 -> { // 浅色
-                ThemeConfig.updateTheme(darkMode = false)
+            1, 4 -> {
                 CardConfig.updateThemePreference(darkMode = false, lightMode = true)
                 CardConfig.setThemeDefaults(false)
-                CardConfig.save(activity)
             }
-            0 -> { // 跟随系统
-                ThemeConfig.updateTheme(darkMode = null)
+            else -> {
                 CardConfig.updateThemePreference(darkMode = null, lightMode = null)
-                val isNightModeActive = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-                CardConfig.setThemeDefaults(isNightModeActive)
-                CardConfig.save(activity)
+                CardConfig.setThemeDefaults(isDark)
             }
         }
+        CardConfig.save(activity)
     }
 
     /**
-     * 处理主题色变更
+     * 处理 key color 变更 (与 SukiSU 一致)
      */
-    fun handleThemeColorChange(theme: ThemeColors) {
-        activity.saveThemeColors(when (theme) {
-            ThemeColors.Green -> "green"
-            ThemeColors.Purple -> "purple"
-            ThemeColors.Orange -> "orange"
-            ThemeColors.Pink -> "pink"
-            ThemeColors.Gray -> "gray"
-            ThemeColors.Yellow -> "yellow"
-            else -> "default"
-        })
-        ThemeConfig.updateTheme(theme = theme)
-    }
-
-    /**
-     * 处理动态颜色变更
-     */
-    fun handleDynamicColorChange(enabled: Boolean) {
-        state.useDynamicColor = enabled
-        activity.saveDynamicColorState(enabled)
-        ThemeConfig.updateTheme(dynamicColor = enabled)
-    }
-
-    /**
-     * 处理设计风格变更
-     */
-    fun handleDesignStyleChange(index: Int) {
-        val style = DesignStyle.fromValue(index)
-        state.designStyle = style.value
-        activity.saveDesignStyle(style)
-    }
-
-    /**
-     * 处理 Miuix 主题色变更
-     */
-    fun handleMiuixKeyColorChange(color: androidx.compose.ui.graphics.Color) {
-        state.miuixKeyColor = color
-        activity.saveMiuixKeyColor(color)
+    fun handleKeyColorChange(colorInt: Int) {
+        state.keyColorInt = colorInt
+        activity.saveKeyColor(colorInt)
     }
 
     /**

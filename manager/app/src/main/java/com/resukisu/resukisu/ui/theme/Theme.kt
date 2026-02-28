@@ -2,7 +2,6 @@ package com.resukisu.resukisu.ui.theme
 
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -16,24 +15,23 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
@@ -43,14 +41,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.zIndex
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
-import com.kyant.m3color.hct.Hct
-import com.kyant.m3color.scheme.SchemeTonalSpot
 import com.resukisu.resukisu.ui.theme.util.BackgroundTransformation
 import com.resukisu.resukisu.ui.theme.util.saveTransformedBackground
 import com.resukisu.resukisu.ui.webui.MonetColorsProvider
@@ -62,20 +57,21 @@ import top.yukonga.miuix.kmp.theme.ThemeController
 import java.io.File
 import java.io.FileOutputStream
 
+// ==================== CompositionLocals (与 SukiSU 一致) ====================
+
+val LocalColorMode = staticCompositionLocalOf { 0 }
+
+// ==================== ThemeConfig ====================
+
 @Stable
 object ThemeConfig {
-    // 主题状态
-    var customBackgroundUri by mutableStateOf<Uri?>(null)
-    var backgroundDim by mutableFloatStateOf(0f)
-    var forceDarkMode by mutableStateOf<Boolean?>(null)
-    var currentTheme by mutableStateOf<ThemeColors>(ThemeColors.Default)
-    var useDynamicColor by mutableStateOf(false)
-
-    // 设计风格
-    var designStyle by mutableStateOf(DesignStyle.MaterialExpressive)
-    var miuixKeyColor by mutableStateOf(Color(0xFF0D6EFD))
+    // 主题模式: 0=System, 1=Light, 2=Dark, 3=MonetSystem, 4=MonetLight, 5=MonetDark
+    var colorMode by mutableIntStateOf(0)
+    var keyColorInt by mutableIntStateOf(0) // 0 = 使用默认色
 
     // 背景状态
+    var customBackgroundUri by mutableStateOf<Uri?>(null)
+    var backgroundDim by mutableFloatStateOf(0f)
     var backgroundImageLoaded by mutableStateOf(false)
     var isThemeChanging by mutableStateOf(false)
     var preventBackgroundRefresh by mutableStateOf(false)
@@ -96,23 +92,11 @@ object ThemeConfig {
         isThemeChanging = true
     }
 
-    fun updateTheme(
-        theme: ThemeColors? = null,
-        dynamicColor: Boolean? = null,
-        darkMode: Boolean? = null
-    ) {
-        theme?.let { currentTheme = it }
-        dynamicColor?.let { useDynamicColor = it }
-        darkMode?.let { forceDarkMode = it }
-    }
-
     fun reset() {
+        colorMode = 0
+        keyColorInt = 0
         customBackgroundUri = null
-        forceDarkMode = null
-        currentTheme = ThemeColors.Default
-        useDynamicColor = false
-        designStyle = DesignStyle.MaterialExpressive
-        miuixKeyColor = Color(0xFF0D6EFD)
+        backgroundDim = 0f
         backgroundImageLoaded = false
         isThemeChanging = false
         preventBackgroundRefresh = false
@@ -120,86 +104,37 @@ object ThemeConfig {
     }
 }
 
+// ==================== ThemeManager ====================
+
 object ThemeManager {
     private const val PREFS_NAME = "theme_prefs"
 
-    fun saveThemeMode(context: Context, forceDark: Boolean?) {
+    fun saveColorMode(context: Context, mode: Int) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putString("theme_mode", when (forceDark) {
-                true -> "dark"
-                false -> "light"
-                null -> "system"
-            })
+            putInt("color_mode", mode)
         }
-        ThemeConfig.forceDarkMode = forceDark
+        ThemeConfig.colorMode = mode
     }
 
-    fun loadThemeMode(context: Context) {
-        val mode = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString("theme_mode", "system")
-
-        ThemeConfig.forceDarkMode = when (mode) {
-            "dark" -> true
-            "light" -> false
-            else -> null
-        }
+    fun loadColorMode(context: Context) {
+        ThemeConfig.colorMode = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt("color_mode", 0)
     }
 
-    fun saveThemeColors(context: Context, themeName: String) {
+    fun saveKeyColor(context: Context, colorInt: Int) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putString("theme_colors", themeName)
+            putInt("key_color", colorInt)
         }
-        ThemeConfig.currentTheme = ThemeColors.fromName(themeName)
+        ThemeConfig.keyColorInt = colorInt
     }
 
-    fun loadThemeColors(context: Context) {
-        val themeName = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString("theme_colors", "default") ?: "default"
-        ThemeConfig.currentTheme = ThemeColors.fromName(themeName)
-    }
-
-    fun saveDynamicColorState(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putBoolean("use_dynamic_color", enabled)
-        }
-        ThemeConfig.useDynamicColor = enabled
-    }
-
-
-    fun loadDynamicColorState(context: Context) {
-        val enabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean("use_dynamic_color", Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-        ThemeConfig.useDynamicColor = enabled
-    }
-
-    fun saveDesignStyle(context: Context, style: DesignStyle) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putInt("design_style", style.value)
-        }
-        ThemeConfig.designStyle = style
-    }
-
-    fun loadDesignStyle(context: Context) {
-        val value = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getInt("design_style", 0)
-        ThemeConfig.designStyle = DesignStyle.fromValue(value)
-    }
-
-    fun saveMiuixKeyColor(context: Context, color: Color) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putLong("miuix_key_color", color.value.toLong())
-        }
-        ThemeConfig.miuixKeyColor = color
-    }
-
-    fun loadMiuixKeyColor(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        if (prefs.contains("miuix_key_color")) {
-            val colorLong = prefs.getLong("miuix_key_color", Color(0xFF0D6EFD).value.toLong())
-            ThemeConfig.miuixKeyColor = Color(colorLong.toULong())
-        }
+    fun loadKeyColor(context: Context) {
+        ThemeConfig.keyColorInt = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt("key_color", 0)
     }
 }
+
+// ==================== BackgroundManager ====================
 
 object BackgroundManager {
     private const val TAG = "BackgroundManager"
@@ -298,15 +233,19 @@ object BackgroundManager {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// ==================== KernelSUTheme (与 SukiSU 一致的纯 Miuix 方案) ====================
+
 @Composable
 fun KernelSUTheme(
-    darkTheme: Boolean = isInDarkTheme(ThemeConfig.forceDarkMode),
-    dynamicColor: Boolean = ThemeConfig.useDynamicColor,
+    colorMode: Int = ThemeConfig.colorMode,
+    keyColor: Color? = remember(ThemeConfig.keyColorInt) {
+        if (ThemeConfig.keyColorInt == 0) null else Color(ThemeConfig.keyColorInt)
+    },
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val systemIsDark = isSystemInDarkTheme()
+    val darkTheme = isInDarkTheme()
 
     // 初始化主题
     ThemeInitializer(context = context, systemIsDark = systemIsDark)
@@ -314,70 +253,55 @@ fun KernelSUTheme(
     // 系统栏样式
     SystemBarController(darkTheme)
 
-    CompositionLocalProvider(LocalDesignStyle provides ThemeConfig.designStyle) {
-        when (ThemeConfig.designStyle) {
-            DesignStyle.MaterialExpressive -> M3ExpressiveThemeContent(darkTheme, dynamicColor, content)
-            DesignStyle.Miuix -> MiuixThemeContent(darkTheme, content)
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun M3ExpressiveThemeContent(
-    darkTheme: Boolean,
-    dynamicColor: Boolean,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = createColorScheme(darkTheme, dynamicColor)
-
-    MaterialExpressiveTheme(
-        colorScheme = colorScheme,
-        motionScheme = MotionScheme.expressive(),
-        typography = Typography
-    ) {
-        MonetColorsProvider.UpdateCss()
-        Box(modifier = Modifier.fillMaxSize()) {
-            BackgroundLayer(darkTheme)
-            content()
-        }
-    }
-}
-
-@Composable
-private fun MiuixThemeContent(
-    darkTheme: Boolean,
-    content: @Composable () -> Unit
-) {
-    val colorSchemeMode = when {
-        ThemeConfig.useDynamicColor -> when (ThemeConfig.forceDarkMode) {
-            true -> ColorSchemeMode.MonetDark
-            false -> ColorSchemeMode.MonetLight
-            null -> ColorSchemeMode.MonetSystem
-        }
-        else -> when (ThemeConfig.forceDarkMode) {
-            true -> ColorSchemeMode.Dark
-            false -> ColorSchemeMode.Light
-            null -> ColorSchemeMode.System
-        }
+    // 与 SukiSU 完全一致的 ThemeController 创建
+    val controller = when (colorMode) {
+        1 -> ThemeController(ColorSchemeMode.Light)
+        2 -> ThemeController(ColorSchemeMode.Dark)
+        3 -> ThemeController(
+            ColorSchemeMode.MonetSystem,
+            keyColor = keyColor,
+            isDark = systemIsDark
+        )
+        4 -> ThemeController(
+            ColorSchemeMode.MonetLight,
+            keyColor = keyColor,
+        )
+        5 -> ThemeController(
+            ColorSchemeMode.MonetDark,
+            keyColor = keyColor,
+        )
+        else -> ThemeController(ColorSchemeMode.System)
     }
 
-    val controller = ThemeController(
-        colorSchemeMode = colorSchemeMode,
-        keyColor = ThemeConfig.miuixKeyColor
-    )
-
-    MiuixTheme(controller = controller) {
-        val bridgedColorScheme = miuixToM3ColorScheme(darkTheme)
-        MaterialTheme(colorScheme = bridgedColorScheme) {
-            MonetColorsProvider.UpdateCss()
-            Box(modifier = Modifier.fillMaxSize()) {
-                BackgroundLayer(darkTheme)
-                content()
+    MiuixTheme(
+        controller = controller,
+        content = {
+            // M3 桥接：让现有 MaterialTheme.colorScheme 引用继续工作
+            val bridgedColorScheme = miuixToM3ColorScheme(darkTheme)
+            MaterialTheme(colorScheme = bridgedColorScheme) {
+                MonetColorsProvider.UpdateCss()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    BackgroundLayer(darkTheme)
+                    content()
+                }
             }
         }
+    )
+}
+
+// ==================== isInDarkTheme (与 SukiSU 一致) ====================
+
+@Composable
+@ReadOnlyComposable
+fun isInDarkTheme(): Boolean {
+    return when (ThemeConfig.colorMode) {
+        1, 4 -> false  // 强制浅色
+        2, 5 -> true   // 强制深色
+        else -> isSystemInDarkTheme()  // 跟随系统 (0, 3)
     }
 }
+
+// ==================== M3 桥接函数 ====================
 
 @Composable
 private fun miuixToM3ColorScheme(darkTheme: Boolean): ColorScheme {
@@ -441,6 +365,8 @@ private fun miuixToM3ColorScheme(darkTheme: Boolean): ColorScheme {
     }
 }
 
+// ==================== ThemeInitializer ====================
+
 @Composable
 private fun ThemeInitializer(context: Context, systemIsDark: Boolean) {
     val themeChanged = ThemeConfig.detectThemeChange(systemIsDark)
@@ -448,7 +374,8 @@ private fun ThemeInitializer(context: Context, systemIsDark: Boolean) {
 
     // 处理系统主题变化
     LaunchedEffect(systemIsDark, themeChanged) {
-        if (ThemeConfig.forceDarkMode == null && themeChanged) {
+        // colorMode 0 或 3 时跟随系统
+        if (ThemeConfig.colorMode in listOf(0, 3) && themeChanged) {
             Log.d("ThemeSystem", "系统主题变化: $systemIsDark")
             ThemeConfig.resetBackgroundState()
 
@@ -467,11 +394,8 @@ private fun ThemeInitializer(context: Context, systemIsDark: Boolean) {
     // 初始加载配置
     LaunchedEffect(Unit) {
         scope.launch {
-            ThemeManager.loadThemeMode(context)
-            ThemeManager.loadThemeColors(context)
-            ThemeManager.loadDynamicColorState(context)
-            ThemeManager.loadDesignStyle(context)
-            ThemeManager.loadMiuixKeyColor(context)
+            ThemeManager.loadColorMode(context)
+            ThemeManager.loadKeyColor(context)
             CardConfig.load(context)
 
             if (!ThemeConfig.backgroundImageLoaded && !ThemeConfig.preventBackgroundRefresh) {
@@ -480,6 +404,8 @@ private fun ThemeInitializer(context: Context, systemIsDark: Boolean) {
         }
     }
 }
+
+// ==================== BackgroundLayer ====================
 
 @Composable
 private fun BackgroundLayer(darkTheme: Boolean) {
@@ -542,7 +468,6 @@ private fun CustomBackgroundLayer(uri: Uri, darkTheme: Boolean) {
             .alpha(alpha)
     ) {
         val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
-        // 背景图片
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -562,61 +487,7 @@ private fun CustomBackgroundLayer(uri: Uri, darkTheme: Boolean) {
     }
 }
 
-@Composable
-private fun createColorScheme(
-    darkTheme: Boolean,
-    dynamicColor: Boolean
-): ColorScheme {
-    return when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val hct = Hct.fromInt(colorResource(id = android.R.color.system_accent1_500).toArgb())
-            val scheme = SchemeTonalSpot(hct, darkTheme, 0.0)
-            MaterialTheme.colorScheme.copy(
-                primary = scheme.primary.toColor(),
-                onPrimary = scheme.onPrimary.toColor(),
-                primaryContainer = scheme.primaryContainer.toColor(),
-                onPrimaryContainer = scheme.onPrimaryContainer.toColor(),
-                inversePrimary = scheme.inversePrimary.toColor(),
-                secondary = scheme.secondary.toColor(),
-                onSecondary = scheme.onSecondary.toColor(),
-                secondaryContainer = scheme.secondaryContainer.toColor(),
-                onSecondaryContainer = scheme.onSecondaryContainer.toColor(),
-                tertiary = scheme.tertiary.toColor(),
-                onTertiary = scheme.onTertiary.toColor(),
-                tertiaryContainer = scheme.tertiaryContainer.toColor(),
-                onTertiaryContainer = scheme.onTertiaryContainer.toColor(),
-                background = scheme.background.toColor(),
-                onBackground = scheme.onBackground.toColor(),
-                surface = scheme.surface.toColor(),
-                onSurface = scheme.onSurface.toColor(),
-                surfaceVariant = scheme.surfaceVariant.toColor(),
-                onSurfaceVariant = scheme.onSurfaceVariant.toColor(),
-                surfaceTint = scheme.primary.toColor(),
-                inverseSurface = scheme.inverseSurface.toColor(),
-                inverseOnSurface = scheme.inverseOnSurface.toColor(),
-                error = scheme.error.toColor(),
-                onError = scheme.onError.toColor(),
-                errorContainer = scheme.errorContainer.toColor(),
-                onErrorContainer = scheme.onErrorContainer.toColor(),
-                outline = scheme.outline.toColor(),
-                outlineVariant = scheme.outlineVariant.toColor(),
-                scrim = scheme.scrim.toColor(),
-                surfaceBright = scheme.surfaceBright.toColor(),
-                surfaceDim = scheme.surfaceDim.toColor(),
-                surfaceContainer = scheme.surfaceContainer.toColor(),
-                surfaceContainerHigh = scheme.surfaceContainerHigh.toColor(),
-                surfaceContainerHighest = scheme.surfaceContainerHighest.toColor(),
-                surfaceContainerLow = scheme.surfaceContainerLow.toColor(),
-                surfaceContainerLowest = scheme.surfaceContainerLowest.toColor(),
-            )
-        }
-        darkTheme -> createDarkColorScheme()
-        else -> createLightColorScheme()
-    }
-}
-
-@Suppress("NOTHING_TO_INLINE")
-private inline fun Int.toColor(): Color = Color(this)
+// ==================== SystemBarController ====================
 
 @Composable
 private fun SystemBarController(darkMode: Boolean) {
@@ -641,85 +512,8 @@ private fun SystemBarController(darkMode: Boolean) {
     }
 }
 
-@Composable
-private fun createDarkColorScheme() = darkColorScheme(
-    primary = ThemeConfig.currentTheme.primaryDark,
-    onPrimary = ThemeConfig.currentTheme.onPrimaryDark,
-    primaryContainer = ThemeConfig.currentTheme.primaryContainerDark,
-    onPrimaryContainer = ThemeConfig.currentTheme.onPrimaryContainerDark,
-    secondary = ThemeConfig.currentTheme.secondaryDark,
-    onSecondary = ThemeConfig.currentTheme.onSecondaryDark,
-    secondaryContainer = ThemeConfig.currentTheme.secondaryContainerDark,
-    onSecondaryContainer = ThemeConfig.currentTheme.onSecondaryContainerDark,
-    tertiary = ThemeConfig.currentTheme.tertiaryDark,
-    onTertiary = ThemeConfig.currentTheme.onTertiaryDark,
-    tertiaryContainer = ThemeConfig.currentTheme.tertiaryContainerDark,
-    onTertiaryContainer = ThemeConfig.currentTheme.onTertiaryContainerDark,
-    error = ThemeConfig.currentTheme.errorDark,
-    onError = ThemeConfig.currentTheme.onErrorDark,
-    errorContainer = ThemeConfig.currentTheme.errorContainerDark,
-    onErrorContainer = ThemeConfig.currentTheme.onErrorContainerDark,
-    background = if (CardConfig.isCustomBackgroundEnabled) Color.Transparent else ThemeConfig.currentTheme.backgroundDark,
-    onBackground = ThemeConfig.currentTheme.onBackgroundDark,
-    surface = if (CardConfig.isCustomBackgroundEnabled) Color.Transparent else ThemeConfig.currentTheme.surfaceDark,
-    onSurface = ThemeConfig.currentTheme.onSurfaceDark,
-    surfaceVariant = ThemeConfig.currentTheme.surfaceVariantDark,
-    onSurfaceVariant = ThemeConfig.currentTheme.onSurfaceVariantDark,
-    outline = ThemeConfig.currentTheme.outlineDark,
-    outlineVariant = ThemeConfig.currentTheme.outlineVariantDark,
-    scrim = ThemeConfig.currentTheme.scrimDark,
-    inverseSurface = ThemeConfig.currentTheme.inverseSurfaceDark,
-    inverseOnSurface = ThemeConfig.currentTheme.inverseOnSurfaceDark,
-    inversePrimary = ThemeConfig.currentTheme.inversePrimaryDark,
-    surfaceDim = ThemeConfig.currentTheme.surfaceDimDark,
-    surfaceBright = ThemeConfig.currentTheme.surfaceBrightDark,
-    surfaceContainerLowest = ThemeConfig.currentTheme.surfaceContainerLowestDark,
-    surfaceContainerLow = ThemeConfig.currentTheme.surfaceContainerLowDark,
-    surfaceContainer = ThemeConfig.currentTheme.surfaceContainerDark,
-    surfaceContainerHigh = ThemeConfig.currentTheme.surfaceContainerHighDark,
-    surfaceContainerHighest = ThemeConfig.currentTheme.surfaceContainerHighestDark,
-)
+// ==================== Context 扩展函数 ====================
 
-@Composable
-private fun createLightColorScheme() = lightColorScheme(
-    primary = ThemeConfig.currentTheme.primaryLight,
-    onPrimary = ThemeConfig.currentTheme.onPrimaryLight,
-    primaryContainer = ThemeConfig.currentTheme.primaryContainerLight,
-    onPrimaryContainer = ThemeConfig.currentTheme.onPrimaryContainerLight,
-    secondary = ThemeConfig.currentTheme.secondaryLight,
-    onSecondary = ThemeConfig.currentTheme.onSecondaryLight,
-    secondaryContainer = ThemeConfig.currentTheme.secondaryContainerLight,
-    onSecondaryContainer = ThemeConfig.currentTheme.onSecondaryContainerLight,
-    tertiary = ThemeConfig.currentTheme.tertiaryLight,
-    onTertiary = ThemeConfig.currentTheme.onTertiaryLight,
-    tertiaryContainer = ThemeConfig.currentTheme.tertiaryContainerLight,
-    onTertiaryContainer = ThemeConfig.currentTheme.onTertiaryContainerLight,
-    error = ThemeConfig.currentTheme.errorLight,
-    onError = ThemeConfig.currentTheme.onErrorLight,
-    errorContainer = ThemeConfig.currentTheme.errorContainerLight,
-    onErrorContainer = ThemeConfig.currentTheme.onErrorContainerLight,
-    background = if (CardConfig.isCustomBackgroundEnabled) Color.Transparent else ThemeConfig.currentTheme.backgroundLight,
-    onBackground = ThemeConfig.currentTheme.onBackgroundLight,
-    surface = if (CardConfig.isCustomBackgroundEnabled) Color.Transparent else ThemeConfig.currentTheme.surfaceLight,
-    onSurface = ThemeConfig.currentTheme.onSurfaceLight,
-    surfaceVariant = ThemeConfig.currentTheme.surfaceVariantLight,
-    onSurfaceVariant = ThemeConfig.currentTheme.onSurfaceVariantLight,
-    outline = ThemeConfig.currentTheme.outlineLight,
-    outlineVariant = ThemeConfig.currentTheme.outlineVariantLight,
-    scrim = ThemeConfig.currentTheme.scrimLight,
-    inverseSurface = ThemeConfig.currentTheme.inverseSurfaceLight,
-    inverseOnSurface = ThemeConfig.currentTheme.inverseOnSurfaceLight,
-    inversePrimary = ThemeConfig.currentTheme.inversePrimaryLight,
-    surfaceDim = ThemeConfig.currentTheme.surfaceDimLight,
-    surfaceBright = ThemeConfig.currentTheme.surfaceBrightLight,
-    surfaceContainerLowest = ThemeConfig.currentTheme.surfaceContainerLowestLight,
-    surfaceContainerLow = ThemeConfig.currentTheme.surfaceContainerLowLight,
-    surfaceContainer = ThemeConfig.currentTheme.surfaceContainerLight,
-    surfaceContainerHigh = ThemeConfig.currentTheme.surfaceContainerHighLight,
-    surfaceContainerHighest = ThemeConfig.currentTheme.surfaceContainerHighestLight,
-)
-
-// 向后兼容
 @OptIn(DelicateCoroutinesApi::class)
 fun Context.saveAndApplyCustomBackground(uri: Uri, transformation: BackgroundTransformation? = null) {
     kotlinx.coroutines.GlobalScope.launch {
@@ -735,34 +529,10 @@ fun Context.saveCustomBackground(uri: Uri?) {
     }
 }
 
-fun Context.saveThemeMode(forceDark: Boolean?) {
-    ThemeManager.saveThemeMode(this, forceDark)
+fun Context.saveColorMode(mode: Int) {
+    ThemeManager.saveColorMode(this, mode)
 }
 
-
-fun Context.saveThemeColors(themeName: String) {
-    ThemeManager.saveThemeColors(this, themeName)
-}
-
-
-fun Context.saveDynamicColorState(enabled: Boolean) {
-    ThemeManager.saveDynamicColorState(this, enabled)
-}
-
-fun Context.saveDesignStyle(style: DesignStyle) {
-    ThemeManager.saveDesignStyle(this, style)
-}
-
-fun Context.saveMiuixKeyColor(color: Color) {
-    ThemeManager.saveMiuixKeyColor(this, color)
-}
-
-@Composable
-@ReadOnlyComposable
-fun isInDarkTheme(themeMode: Boolean?): Boolean {
-    return when(themeMode) {
-        true -> true // 强制深色
-        false -> false // 强制浅色
-        null -> isSystemInDarkTheme() // 跟随系统
-    }
+fun Context.saveKeyColor(colorInt: Int) {
+    ThemeManager.saveKeyColor(this, colorInt)
 }

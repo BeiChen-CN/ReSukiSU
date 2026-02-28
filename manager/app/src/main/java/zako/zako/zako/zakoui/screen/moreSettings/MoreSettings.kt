@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.DesignServices
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
@@ -71,6 +70,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -94,7 +94,6 @@ import com.resukisu.resukisu.ui.component.settings.SettingsSwitchWidget
 import com.resukisu.resukisu.ui.component.settings.SplicedColumnGroup
 import com.resukisu.resukisu.ui.component.settings.SplicedGroupScope
 import com.resukisu.resukisu.ui.theme.CardConfig
-import com.resukisu.resukisu.ui.theme.ThemeColors
 import com.resukisu.resukisu.ui.theme.ThemeConfig
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -104,7 +103,6 @@ import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import zako.zako.zako.zakoui.screen.moreSettings.component.ColorCircle
 import zako.zako.zako.zakoui.screen.moreSettings.component.LanguageSelectionDialog
 import zako.zako.zako.zakoui.screen.moreSettings.component.MoreSettingsDialogs
 import zako.zako.zako.zakoui.screen.moreSettings.state.MoreSettingsState
@@ -319,68 +317,68 @@ private fun AppearanceSettings(
         }
 
         item {
-            // 设计风格
-            SettingsDropdownWidget(
-                icon = Icons.Default.DesignServices,
-                title = stringResource(R.string.design_style),
-                items = state.designStyleOptions,
-                selectedIndex = state.designStyle,
-                onSelectedIndexChange = { index ->
-                    handlers.handleDesignStyleChange(index)
-                }
-            )
-        }
-
-        item {
-            // 主题模式
+            // 主题模式 (与 SukiSU 一致的 6 选项)
             SettingsDropdownWidget(
                 icon = Icons.Default.DarkMode,
                 title = stringResource(R.string.theme_mode),
                 items = state.themeOptions,
-                selectedIndex = state.themeMode,
+                selectedIndex = state.colorMode,
                 onSelectedIndexChange = { index ->
-                    handlers.handleThemeModeChange(index)
+                    handlers.handleColorModeChange(index)
                 }
             )
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            item {
-                // 动态颜色开关
-                SettingsSwitchWidget(
-                    icon = Icons.Filled.ColorLens,
-                    title = stringResource(R.string.dynamic_color_title),
-                    description = stringResource(R.string.dynamic_color_summary),
-                    checked = state.useDynamicColor,
-                    onCheckedChange = handlers::handleDynamicColorChange
-                )
-            }
-        }
-
         item(
-            visible = state.designStyle == 0 && (!state.useDynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S)
+            visible = state.colorMode in 3..5
         ) {
-            // 主题色选择（仅 M3 模式 + 非动态颜色时显示）
-            ThemeColorSelection(state = state)
-        }
-
-        item(
-            visible = state.designStyle == 1 && state.useDynamicColor
-        ) {
-            // Miuix 主题色选择（仅 Miuix 模式 + 动态颜色时显示）
-            SettingsBaseWidget(
+            // Key color 选择 (仅 Monet 模式时显示，与 SukiSU 一致)
+            val colorItems = listOf(
+                stringResource(R.string.settings_key_color_default),
+                stringResource(R.string.color_red),
+                stringResource(R.string.color_pink),
+                stringResource(R.string.color_purple),
+                stringResource(R.string.color_deep_purple),
+                stringResource(R.string.color_indigo),
+                stringResource(R.string.color_blue),
+                stringResource(R.string.color_cyan),
+                stringResource(R.string.color_teal),
+                stringResource(R.string.color_green),
+                stringResource(R.string.color_yellow),
+                stringResource(R.string.color_amber),
+                stringResource(R.string.color_orange),
+                stringResource(R.string.color_brown),
+                stringResource(R.string.color_blue_grey),
+                stringResource(R.string.color_sakura),
+            )
+            val colorValues = listOf(
+                0,
+                Color(0xFFF44336).toArgb(),
+                Color(0xFFE91E63).toArgb(),
+                Color(0xFF9C27B0).toArgb(),
+                Color(0xFF673AB7).toArgb(),
+                Color(0xFF3F51B5).toArgb(),
+                Color(0xFF2196F3).toArgb(),
+                Color(0xFF00BCD4).toArgb(),
+                Color(0xFF009688).toArgb(),
+                Color(0xFF4FAF50).toArgb(),
+                Color(0xFFFFEB3B).toArgb(),
+                Color(0xFFFFC107).toArgb(),
+                Color(0xFFFF9800).toArgb(),
+                Color(0xFF795548).toArgb(),
+                Color(0xFF607D8F).toArgb(),
+                Color(0xFFFF9CA8).toArgb(),
+            )
+            val keyColorIndex = colorValues.indexOf(state.keyColorInt).takeIf { it >= 0 } ?: 0
+            SettingsDropdownWidget(
                 icon = Icons.Default.Palette,
                 title = stringResource(R.string.miuix_key_color),
-                description = stringResource(R.string.miuix_key_color_summary),
-                onClick = { state.showMiuixKeyColorDialog = true },
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(state.miuixKeyColor)
-                )
-            }
+                items = colorItems,
+                selectedIndex = keyColorIndex,
+                onSelectedIndexChange = { index ->
+                    handlers.handleKeyColorChange(colorValues[index])
+                }
+            )
         }
 
         item {
@@ -585,48 +583,6 @@ private fun AdvancedSettings(
                     onClick = { state.showDynamicSignDialog = true }
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ThemeColorSelection(state: MoreSettingsState) {
-    SettingsBaseWidget(
-        icon = Icons.Default.Palette,
-        title = stringResource(R.string.theme_color),
-        description = when (ThemeConfig.currentTheme) {
-            is ThemeColors.Green -> stringResource(R.string.color_green)
-            is ThemeColors.Purple -> stringResource(R.string.color_purple)
-            is ThemeColors.Orange -> stringResource(R.string.color_orange)
-            is ThemeColors.Pink -> stringResource(R.string.color_pink)
-            is ThemeColors.Gray -> stringResource(R.string.color_gray)
-            is ThemeColors.Yellow -> stringResource(R.string.color_yellow)
-            else -> stringResource(R.string.color_default)
-        },
-        onClick = { state.showThemeColorDialog = true },
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 8.dp)
-        ) {
-            val theme = ThemeConfig.currentTheme
-            val isDark = isSystemInDarkTheme()
-
-            ColorCircle(
-                color = if (isDark) theme.primaryDark else theme.primaryLight,
-                isSelected = false,
-                modifier = Modifier.padding(horizontal = 2.dp)
-            )
-            ColorCircle(
-                color = if (isDark) theme.secondaryDark else theme.secondaryLight,
-                isSelected = false,
-                modifier = Modifier.padding(horizontal = 2.dp)
-            )
-            ColorCircle(
-                color = if (isDark) theme.tertiaryDark else theme.tertiaryLight,
-                isSelected = false,
-                modifier = Modifier.padding(horizontal = 2.dp)
-            )
         }
     }
 }

@@ -39,7 +39,6 @@ import com.resukisu.resukisu.ui.activity.util.adjustLightnessArgb
 import com.resukisu.resukisu.ui.activity.util.cssColorFromArgb
 import com.resukisu.resukisu.ui.activity.util.ensureVisibleByMix
 import com.resukisu.resukisu.ui.activity.util.relativeLuminance
-import com.resukisu.resukisu.ui.theme.ThemeConfig
 import com.resukisu.resukisu.ui.theme.isInDarkTheme
 import okhttp3.Headers.Companion.toHeaders
 import okhttp3.OkHttpClient
@@ -58,7 +57,7 @@ fun GithubMarkdown(
     loading: MutableState<Boolean> = remember { mutableStateOf(true) },
     callerProvideLoadingIndicator: Boolean = false
 ) {
-    val isDark = isInDarkTheme(ThemeConfig.forceDarkMode)
+    val isDark = isInDarkTheme()
     val dir = if (LocalLayoutDirection.current == LayoutDirection.Rtl) "rtl" else "ltr"
 
     val bgArgb = backgroundColor.toArgb()
